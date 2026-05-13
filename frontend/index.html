@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Real-Time Forum</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Шаблоны страниц -->
+  <template id="tpl-login">
+    <div class="auth-page">
+      <div class="auth-card">
+        <h1>Войти</h1>
+        <form id="login-form" class="auth-form">
+          <label>Никнейм или e-mail
+            <input type="text" name="identifier" required />
+          </label>
+          <label>Пароль
+            <input type="password" name="password" required />
+          </label>
+          <button type="submit">Войти</button>
+          <p class="err" id="login-err"></p>
+          <p class="switch">Нет аккаунта? <a href="#" data-go="register">Зарегистрироваться</a></p>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-register">
+    <div class="auth-page">
+      <div class="auth-card">
+        <h1>Регистрация</h1>
+        <form id="register-form" class="auth-form">
+          <label>Никнейм<input type="text" name="nickname" required /></label>
+          <label>Возраст<input type="number" name="age" min="1" max="150" required /></label>
+          <label>Пол
+            <select name="gender" required>
+              <option value="">—</option>
+              <option value="male">Мужской</option>
+              <option value="female">Женский</option>
+              <option value="other">Другой</option>
+            </select>
+          </label>
+          <label>Имя<input type="text" name="first_name" required /></label>
+          <label>Фамилия<input type="text" name="last_name" required /></label>
+          <label>E-mail<input type="email" name="email" required /></label>
+          <label>Пароль (мин. 6 симв.)<input type="password" name="password" minlength="6" required /></label>
+          <button type="submit">Зарегистрироваться</button>
+          <p class="err" id="register-err"></p>
+          <p class="switch">Уже есть аккаунт? <a href="#" data-go="login">Войти</a></p>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-main">
+    <div class="layout">
+      <header class="topbar">
+        <div class="brand">Forum</div>
+        <nav class="nav">
+          <a href="#" data-go="feed">Лента</a>
+          <a href="#" data-go="newpost">Новый пост</a>
+        </nav>
+        <div class="userbox">
+          <span id="me-nick"></span>
+          <button id="logout-btn">Выйти</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="content" id="content"></section>
+        <aside class="sidebar">
+          <h3>Пользователи</h3>
+          <div id="users-list"></div>
+        </aside>
+      </main>
+
+      <!-- окно чата -->
+      <div id="chat-window" class="chat-window hidden">
+        <div class="chat-header">
+          <span id="chat-with"></span>
+          <button id="chat-close">×</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <form id="chat-form" class="chat-form">
+          <input type="text" id="chat-input" placeholder="Сообщение..." autocomplete="off" />
+          <button type="submit">→</button>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-feed">
+    <h2>Лента</h2>
+    <div class="filters">
+      <label>Категория:
+        <select id="filter-category">
+          <option value="">Все</option>
+        </select>
+      </label>
+    </div>
+    <div id="posts-list" class="posts-list"></div>
+  </template>
+
+  <template id="tpl-newpost">
+    <h2>Создать пост</h2>
+    <form id="newpost-form" class="newpost-form">
+      <label>Заголовок<input type="text" name="title" required /></label>
+      <label>Текст<textarea name="content" rows="6" required></textarea></label>
+      <fieldset>
+        <legend>Категории (минимум одна)</legend>
+        <div id="categories-checkboxes"></div>
+      </fieldset>
+      <button type="submit">Опубликовать</button>
+      <p class="err" id="newpost-err"></p>
+    </form>
+  </template>
+
+  <template id="tpl-post-view">
+    <button class="back-btn" data-go="feed">← Назад к ленте</button>
+    <article id="single-post"></article>
+    <section class="comments">
+      <h3>Комментарии</h3>
+      <div id="comments-list"></div>
+      <form id="comment-form">
+        <textarea name="content" rows="2" placeholder="Ваш комментарий..." required></textarea>
+        <button type="submit">Отправить</button>
+      </form>
+    </section>
+  </template>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/ws.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/posts.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
