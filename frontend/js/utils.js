@@ -29,6 +29,17 @@ function debounce(fn, delay) {
   };
 }
 
+// Приводит id пользователя к числу (JSON/WS иногда дают смешанные типы)
+function userId(v) {
+  if (v == null || v === '') return NaN;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function sameUserId(a, b) {
+  return userId(a) === userId(b);
+}
+
 // Безопасный вывод текста
 function escapeHTML(str) {
   if (str == null) return '';

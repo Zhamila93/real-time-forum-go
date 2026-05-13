@@ -1,6 +1,6 @@
-module REAL-TIME-FORUM
+module forum
 
-go 1.21
+go 1.26.2
 
 require (
 	github.com/google/uuid v1.6.0

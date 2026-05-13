@@ -19,7 +19,7 @@ const Chat = {
     // обновим онлайн-статусы и пересортируем
     const users = State.users.map(u => ({
       ...u,
-      online: State.onlineIDs.has(u.id),
+      online: State.onlineIDs.has(userId(u.id)),
     }));
 
     // сортировка: сначала те с last_message по убыванию даты, потом по алфавиту
@@ -39,11 +39,11 @@ const Chat = {
 
     sorted.forEach(u => {
       const it = document.createElement('div');
-      it.className = 'user-item' + (State.unreadFrom.has(u.id) ? ' unread' : '');
+      it.className = 'user-item' + (State.unreadFrom.has(userId(u.id)) ? ' unread' : '');
       it.innerHTML = `
         <span class="dot ${u.online ? 'online' : ''}"></span>
         <span class="user-name">${escapeHTML(u.nickname)}</span>
-        ${State.unreadFrom.has(u.id) ? '<span class="user-badge">!</span>' : ''}
+        ${State.unreadFrom.has(userId(u.id)) ? '<span class="user-badge">!</span>' : ''}
       `;
       it.addEventListener('click', () => Chat.openChat(u));
       box.appendChild(it);
@@ -56,7 +56,7 @@ const Chat = {
     State.chatOffset = 0;
     State.chatHasMore = true;
     State.chatLoading = false;
-    State.unreadFrom.delete(user.id);
+    State.unreadFrom.delete(userId(user.id));
     this.renderUserList();
 
     const win = document.getElementById('chat-window');
@@ -123,7 +123,8 @@ const Chat = {
 
   renderMsg(m) {
     const d = document.createElement('div');
-    const isOut = m.sender_id === State.me.id || m.from === State.me.id;
+    const meId = userId(State.me && State.me.id);
+    const isOut = sameUserId(m.sender_id, meId) || sameUserId(m.from, meId);
     d.className = 'msg ' + (isOut ? 'out' : 'in');
     const sender = m.sender || m.from_nick || (isOut ? State.me.nickname : (State.activeChat && State.activeChat.nickname) || '');
     const created = m.created_at;
@@ -158,9 +159,11 @@ const Chat = {
       const input = document.getElementById('chat-input');
       const text = input.value.trim();
       if (!text) return;
+      const peerId = userId(State.activeChat.id);
+      if (Number.isNaN(peerId)) return;
       WS.send({
         type: 'message',
-        to: State.activeChat.id,
+        to: peerId,
         content: text,
       });
       input.value = '';
@@ -170,7 +173,10 @@ const Chat = {
     const input = document.getElementById('chat-input');
     const sendTyping = debounce(() => {
       if (State.activeChat) {
-        WS.send({ type: 'typing', to: State.activeChat.id });
+        const id = userId(State.activeChat.id);
+        if (!Number.isNaN(id)) {
+          WS.send({ type: 'typing', to: id });
+        }
       }
     }, 500);
     input.addEventListener('input', sendTyping);
@@ -178,16 +184,20 @@ const Chat = {
 
   // ===== Реалтайм-приём сообщения =====
   onNewMessage(data) {
+    if (!State.me) return;
     // data: { id, from, from_nick, to, content, created_at }
     // обновим список users — last_message
-    const otherID = data.from === State.me.id ? data.to : data.from;
-    const u = State.users.find(x => x.id === otherID);
+    const meId = userId(State.me.id);
+    const fromId = userId(data.from);
+    const toId = userId(data.to);
+    const otherID = fromId === meId ? toId : fromId;
+    const u = State.users.find(x => userId(x.id) === otherID);
     if (u) {
       u.last_message = data.created_at;
     }
 
     // если открыт чат с этим пользователем — добавим в окно
-    if (State.activeChat && State.activeChat.id === otherID) {
+    if (State.activeChat && userId(State.activeChat.id) === otherID) {
       const msgsBox = document.getElementById('chat-messages');
       const wasAtBottom = msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 60;
       msgsBox.appendChild(this.renderMsg({
@@ -199,9 +209,9 @@ const Chat = {
       // чтобы пагинация не пересекалась с уже видимыми
       State.chatOffset += 1;
       if (wasAtBottom) msgsBox.scrollTop = msgsBox.scrollHeight;
-    } else if (data.from !== State.me.id) {
+    } else if (!sameUserId(data.from, meId) && !Number.isNaN(fromId)) {
       // непрочитанное от другого
-      State.unreadFrom.add(data.from);
+      State.unreadFrom.add(fromId);
     }
 
     this.renderUserList();

@@ -14,7 +14,7 @@ const App = {
     // проверяем, авторизованы ли мы
     try {
       const me = await API.me();
-      State.me = me;
+      State.me = { ...me, id: userId(me.id) };
       await this.enterApp();
     } catch (e) {
       this.go('login');
@@ -62,15 +62,17 @@ const App = {
   async enterApp() {
     // Подготовить WebSocket-обработчики
     WS.on('online_list', (data) => {
-      State.onlineIDs = new Set(data.online_ids || []);
+      State.onlineIDs = new Set(
+        (data.online_ids || []).map(userId).filter((n) => !Number.isNaN(n)),
+      );
       Chat.renderUserList();
     });
     WS.on('user_online', (data) => {
-      State.onlineIDs.add(data.from);
+      State.onlineIDs.add(userId(data.from));
       Chat.renderUserList();
     });
     WS.on('user_offline', (data) => {
-      State.onlineIDs.delete(data.from);
+      State.onlineIDs.delete(userId(data.from));
       Chat.renderUserList();
     });
     WS.on('new_message', (data) => {

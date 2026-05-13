@@ -229,6 +229,7 @@ input:focus, textarea:focus, select:focus {
   right: 20px;
   width: 360px;
   height: 480px;
+  min-height: 0;
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -256,6 +257,7 @@ input:focus, textarea:focus, select:focus {
 }
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
   display: flex;

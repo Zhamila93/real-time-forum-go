@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	gws "github.com/gorilla/websocket"
 )
 
-// Сообщение, передаваемое по WS
 type WSMessage struct {
-	Type      string `json:"type"` // "message", "typing", "user_online", "user_offline", "online_list", "new_message"
+	Type      string `json:"type"`
+	ID        int    `json:"id,omitempty"`
 	From      int    `json:"from,omitempty"`
 	FromNick  string `json:"from_nick,omitempty"`
 	To        int    `json:"to,omitempty"`
@@ -21,19 +21,17 @@ type WSMessage struct {
 	OnlineIDs []int  `json:"online_ids,omitempty"`
 }
 
-// Client — клиент WS
 type Client struct {
 	Hub      *Hub
-	Conn     *websocket.Conn
+	Conn     *gws.Conn
 	Send     chan []byte
 	UserID   int
 	Nickname string
 }
 
-// Hub — центральная точка управления WS-соединениями
 type Hub struct {
 	clients    map[*Client]bool
-	usersConns map[int]map[*Client]bool // userID -> set клиентов
+	usersConns map[int]map[*Client]bool
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan []byte
@@ -61,32 +59,47 @@ func (h *Hub) Run() {
 			if h.usersConns[c.UserID] == nil {
 				h.usersConns[c.UserID] = make(map[*Client]bool)
 			}
-			wasFirstConn := len(h.usersConns[c.UserID]) == 0
+			
+			isFirst := len(h.usersConns[c.UserID]) == 0
 			h.usersConns[c.UserID][c] = true
+			
+			// Получаем список ID под замком
+			ids := h.getOnlineIDsLocked()
 			h.mu.Unlock()
 
-			// уведомляем всех, что пользователь онлайн (только при первом подключении)
-			if wasFirstConn {
-				h.broadcastUserStatus(c.UserID, true)
+			// 1. Отправляем новичку список всех, кто онлайн
+			h.sendDirect(c, WSMessage{
+				Type:      "online_list",
+				OnlineIDs: ids,
+			})
+
+			// 2. Если это первое зашедшее устройство юзера, уведомляем остальных
+			if isFirst {
+				h.broadcastStatus(c.UserID, true)
 			}
-			// отправляем новому клиенту список всех онлайн
-			h.sendOnlineList(c)
 
 		case c := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[c]; ok {
 				delete(h.clients, c)
-				if conns, ok := h.usersConns[c.UserID]; ok {
-					delete(conns, c)
-					if len(conns) == 0 {
-						delete(h.usersConns, c.UserID)
-						// уведомим всех, что пользователь оффлайн
-						go h.broadcastUserStatus(c.UserID, false)
-					}
+				
+				conns := h.usersConns[c.UserID]
+				delete(conns, c)
+				
+				isLast := len(conns) == 0
+				if isLast {
+					delete(h.usersConns, c.UserID)
 				}
+				
 				close(c.Send)
+				h.mu.Unlock()
+
+				if isLast {
+					h.broadcastStatus(c.UserID, false)
+				}
+			} else {
+				h.mu.Unlock()
 			}
-			h.mu.Unlock()
 
 		case msg := <-h.broadcast:
 			h.mu.RLock()
@@ -94,7 +107,7 @@ func (h *Hub) Run() {
 				select {
 				case c.Send <- msg:
 				default:
-					// канал переполнен — пропускаем
+					// Если клиент не успевает читать — не вешаем сервер
 				}
 			}
 			h.mu.RUnlock()
@@ -102,20 +115,8 @@ func (h *Hub) Run() {
 	}
 }
 
-// OnlineUsersMap — карта userID -> true для онлайн-юзеров
-func (h *Hub) OnlineUsersMap() map[int]bool {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	res := make(map[int]bool, len(h.usersConns))
-	for uid := range h.usersConns {
-		res[uid] = true
-	}
-	return res
-}
-
-func (h *Hub) onlineIDs() []int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+// Вспомогательные методы (без блокировок внутри, вызываются под Lock)
+func (h *Hub) getOnlineIDsLocked() []int {
 	ids := make([]int, 0, len(h.usersConns))
 	for uid := range h.usersConns {
 		ids = append(ids, uid)
@@ -123,11 +124,19 @@ func (h *Hub) onlineIDs() []int {
 	return ids
 }
 
-func (h *Hub) sendOnlineList(c *Client) {
-	msg := WSMessage{
-		Type:      "online_list",
-		OnlineIDs: h.onlineIDs(),
+// Публичные методы для рассылки (безопасные)
+func (h *Hub) broadcastStatus(userID int, online bool) {
+	msgType := "user_offline"
+	if online {
+		msgType = "user_online"
 	}
+	
+	msg := WSMessage{Type: msgType, From: userID}
+	data, _ := json.Marshal(msg)
+	h.broadcast <- data
+}
+
+func (h *Hub) sendDirect(c *Client, msg WSMessage) {
 	data, _ := json.Marshal(msg)
 	select {
 	case c.Send <- data:
@@ -135,94 +144,76 @@ func (h *Hub) sendOnlineList(c *Client) {
 	}
 }
 
-func (h *Hub) broadcastUserStatus(userID int, online bool) {
-	t := "user_online"
-	if !online {
-		t = "user_offline"
-	}
-	msg := WSMessage{
-		Type: t,
-		From: userID,
-	}
+func (h *Hub) SendToUser(userID int, msg WSMessage) {
 	data, _ := json.Marshal(msg)
-	h.broadcast <- data
-}
-
-// SendToUser — отправить сообщение конкретному пользователю на все его соединения
-func (h *Hub) SendToUser(userID int, data []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	conns, ok := h.usersConns[userID]
-	if !ok {
-		return
-	}
-	for c := range conns {
-		select {
-		case c.Send <- data:
-		default:
+	
+	if conns, ok := h.usersConns[userID]; ok {
+		for c := range conns {
+			select {
+			case c.Send <- data:
+			default:
+			}
 		}
 	}
 }
 
-// Register / Unregister — экспорт для handlers
-func (h *Hub) Register(c *Client) {
-	h.register <- c
-}
-func (h *Hub) Unregister(c *Client) {
-	h.unregister <- c
-}
-
-// HandleIncoming — обрабатывает входящие сообщения от клиента
 func (h *Hub) HandleIncoming(c *Client, raw []byte) {
 	var msg WSMessage
 	if err := json.Unmarshal(raw, &msg); err != nil {
-		log.Println("ws: некорректный JSON от клиента:", err)
 		return
 	}
 
 	switch msg.Type {
 	case "message":
-		h.handleChatMessage(c, msg)
-	case "typing":
-		// можно реализовать индикатор «печатает»
-		out := WSMessage{
-			Type:     "typing",
-			From:     c.UserID,
-			FromNick: c.Nickname,
-			To:       msg.To,
+		if msg.To == 0 || msg.Content == "" {
+			return
 		}
-		data, _ := json.Marshal(out)
-		h.SendToUser(msg.To, data)
+
+		// Сохранение в БД
+		res, err := h.db.Exec(
+			`INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`,
+			c.UserID, msg.To, msg.Content,
+		)
+		if err != nil {
+			log.Println("DB Error:", err)
+			return
+		}
+
+		lastID, err := res.LastInsertId()
+		if err != nil {
+			log.Println("LastInsertId:", err)
+		}
+
+		createdAt := time.Now().Format(time.RFC3339)
+
+		response := WSMessage{
+			Type:      "new_message",
+			ID:        int(lastID),
+			From:      c.UserID,
+			FromNick:  c.Nickname,
+			To:        msg.To,
+			Content:   msg.Content,
+			CreatedAt: createdAt,
+		}
+
+		// Отправляем обоим сторонам
+		h.SendToUser(msg.To, response)
+		h.SendToUser(c.UserID, response)
 	}
 }
 
-func (h *Hub) handleChatMessage(c *Client, msg WSMessage) {
-	if msg.To == 0 || msg.Content == "" {
-		return
+func (h *Hub) Register(c *Client)   { h.register <- c }
+func (h *Hub) Unregister(c *Client) { h.unregister <- c }
+
+func (h *Hub) OnlineUsersMap() map[int]bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	
+	res := make(map[int]bool, len(h.usersConns))
+	for uid := range h.usersConns {
+		res[uid] = true
 	}
-
-	// сохраняем в БД
-	res, err := h.db.Exec(
-		`INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)`,
-		c.UserID, msg.To, msg.Content)
-	if err != nil {
-		log.Println("ws: ошибка сохранения сообщения:", err)
-		return
-	}
-	id, _ := res.LastInsertId()
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	payload, _ := json.Marshal(map[string]interface{}{
-		"type":       "new_message",
-		"id":         id,
-		"from":       c.UserID,
-		"from_nick":  c.Nickname,
-		"to":         msg.To,
-		"content":    msg.Content,
-		"created_at": now,
-	})
-
-	// отправляем получателю и отправителю (для синхронизации других вкладок)
-	h.SendToUser(msg.To, payload)
-	h.SendToUser(c.UserID, payload)
+	return res
 }

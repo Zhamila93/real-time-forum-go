@@ -16,7 +16,7 @@ const Auth = {
       };
       try {
         const data = await API.login(body);
-        State.me = data;
+        State.me = { ...data, id: userId(data.id) };
         await App.enterApp();
       } catch (err) {
         document.getElementById('login-err').textContent = err.message;
@@ -44,7 +44,7 @@ const Auth = {
       };
       try {
         const data = await API.register(body);
-        State.me = data;
+        State.me = { ...data, id: userId(data.id) };
         await App.enterApp();
       } catch (err) {
         document.getElementById('register-err').textContent = err.message;
