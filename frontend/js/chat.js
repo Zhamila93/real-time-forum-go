@@ -1,6 +1,19 @@
 // chat.js — приватные сообщения, список пользователей, реалтайм
 
 const Chat = {
+  typingTimer: null,
+
+  msgKey(m) {
+    if (m.id != null && m.id !== '') return 'id:' + m.id;
+    const t = m.created_at || '';
+    const sid = userId(m.sender_id != null ? m.sender_id : m.from);
+    return 'tmp:' + sid + ':' + t + ':' + (m.content || '');
+  },
+
+  hasMessageInBox(msgsBox, key) {
+    return Array.from(msgsBox.querySelectorAll('[data-msg-key]')).some((el) => el.dataset.msgKey === key);
+  },
+
   // ===== Список пользователей в сайдбаре =====
   async loadUsers() {
     try {
@@ -71,6 +84,8 @@ const Chat = {
 
   closeChat() {
     State.activeChat = null;
+    this.showTyping('', false);
+    if (this.typingTimer) clearTimeout(this.typingTimer);
     document.getElementById('chat-window').classList.add('hidden');
   },
 
@@ -125,7 +140,9 @@ const Chat = {
     const d = document.createElement('div');
     const meId = userId(State.me && State.me.id);
     const isOut = sameUserId(m.sender_id, meId) || sameUserId(m.from, meId);
-    d.className = 'msg ' + (isOut ? 'out' : 'in');
+    d.className = 'msg ' + (isOut ? 'out' : 'in') + (m.pending ? ' pending' : '');
+    d.dataset.msgKey = this.msgKey(m);
+    if (m.id != null && m.id !== '') d.dataset.msgId = String(m.id);
     const sender = m.sender || m.from_nick || (isOut ? State.me.nickname : (State.activeChat && State.activeChat.nickname) || '');
     const created = m.created_at;
     d.innerHTML = `
@@ -133,6 +150,42 @@ const Chat = {
       <div class="msg-meta">${escapeHTML(sender)} • ${formatDate(created)}</div>
     `;
     return d;
+  },
+
+  appendToActiveChat(m) {
+    const msgsBox = document.getElementById('chat-messages');
+    if (!msgsBox) return false;
+    if (this.hasMessageInBox(msgsBox, this.msgKey(m))) return false;
+    const wasAtBottom = msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 60;
+    msgsBox.appendChild(this.renderMsg(m));
+    if (wasAtBottom) msgsBox.scrollTop = msgsBox.scrollHeight;
+    return true;
+  },
+
+  showTyping(fromNick, show) {
+    const msgsBox = document.getElementById('chat-messages');
+    if (!msgsBox) return;
+    let el = msgsBox.querySelector('.typing-hint');
+    if (!show) {
+      if (el) el.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'typing-hint';
+      msgsBox.appendChild(el);
+    }
+    el.textContent = (fromNick || 'Собеседник') + ' печатает…';
+    msgsBox.scrollTop = msgsBox.scrollHeight;
+  },
+
+  onTyping(data) {
+    if (!State.activeChat || !State.me) return;
+    const fromId = userId(data.from);
+    if (userId(State.activeChat.id) !== fromId) return;
+    this.showTyping(data.from_nick, true);
+    if (this.typingTimer) clearTimeout(this.typingTimer);
+    this.typingTimer = setTimeout(() => this.showTyping('', false), 2500);
   },
 
   // ===== Скролл-листенер (throttle!) =====
@@ -161,12 +214,28 @@ const Chat = {
       if (!text) return;
       const peerId = userId(State.activeChat.id);
       if (Number.isNaN(peerId)) return;
+
+      const now = new Date().toISOString();
+      this.appendToActiveChat({
+        sender_id: State.me.id,
+        sender: State.me.nickname,
+        content: text,
+        created_at: now,
+        pending: true,
+      });
+      const listUser = State.users.find(x => userId(x.id) === peerId);
+      if (listUser) {
+        listUser.last_message = now;
+        this.renderUserList();
+      }
+
       WS.send({
         type: 'message',
         to: peerId,
         content: text,
       });
       input.value = '';
+      this.showTyping('', false);
     });
 
     // debounce: индикатор "печатает" (можно расширить — здесь как демонстрация)
@@ -196,19 +265,17 @@ const Chat = {
       u.last_message = data.created_at;
     }
 
-    // если открыт чат с этим пользователем — добавим в окно
+    // если открыт чат с этим пользователем — добавим в окно (без дубликатов)
     if (State.activeChat && userId(State.activeChat.id) === otherID) {
-      const msgsBox = document.getElementById('chat-messages');
-      const wasAtBottom = msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 60;
-      msgsBox.appendChild(this.renderMsg({
-        ...data,
+      const added = this.appendToActiveChat({
+        id: data.id,
         sender_id: data.from,
         sender: data.from_nick,
-      }));
-      // увеличим offset — мы сами добавили сообщение,
-      // чтобы пагинация не пересекалась с уже видимыми
-      State.chatOffset += 1;
-      if (wasAtBottom) msgsBox.scrollTop = msgsBox.scrollHeight;
+        content: data.content,
+        created_at: data.created_at,
+      });
+      if (added) State.chatOffset += 1;
+      this.showTyping('', false);
     } else if (!sameUserId(data.from, meId) && !Number.isNaN(fromId)) {
       // непрочитанное от другого
       State.unreadFrom.add(fromId);

@@ -79,7 +79,7 @@ const App = {
       Chat.onNewMessage(data);
     });
     WS.on('typing', (data) => {
-      // здесь можно показывать индикатор "печатает"
+      Chat.onTyping(data);
     });
 
     WS.connect();

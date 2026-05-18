@@ -162,12 +162,14 @@ func (h *Hub) SendToUser(userID int, msg WSMessage) {
 func (h *Hub) HandleIncoming(c *Client, raw []byte) {
 	var msg WSMessage
 	if err := json.Unmarshal(raw, &msg); err != nil {
+		log.Printf("ws: bad json from user %d: %v raw=%s", c.UserID, err, string(raw))
 		return
 	}
 
 	switch msg.Type {
 	case "message":
 		if msg.To == 0 || msg.Content == "" {
+			log.Printf("ws: skip message from %d: to=%d content_len=%d", c.UserID, msg.To, len(msg.Content))
 			return
 		}
 
@@ -198,9 +200,20 @@ func (h *Hub) HandleIncoming(c *Client, raw []byte) {
 			CreatedAt: createdAt,
 		}
 
-		// Отправляем обоим сторонам
+		// Отправляем обоим сторонам (отправитель и получатель видят без перезагрузки)
 		h.SendToUser(msg.To, response)
 		h.SendToUser(c.UserID, response)
+
+	case "typing":
+		if msg.To == 0 {
+			return
+		}
+		h.SendToUser(msg.To, WSMessage{
+			Type:     "typing",
+			From:     c.UserID,
+			FromNick: c.Nickname,
+			To:       msg.To,
+		})
 	}
 }
 

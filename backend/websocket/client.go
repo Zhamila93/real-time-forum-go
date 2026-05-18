@@ -32,10 +32,11 @@ func (c *Client) ReadPump() {
 		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if gws.IsUnexpectedCloseError(err, gws.CloseGoingAway, gws.CloseAbnormalClosure) {
-				log.Printf("ws read error: %v", err)
+				log.Printf("ws read error user %d: %v", c.UserID, err)
 			}
 			break
 		}
+		log.Printf("ws recv user %d: %s", c.UserID, string(message))
 		c.Hub.HandleIncoming(c, message)
 	}
 }
