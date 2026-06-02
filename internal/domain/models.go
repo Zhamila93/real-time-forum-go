@@ -1,4 +1,4 @@
-package models
+package domain
 
 import "time"
 
@@ -23,6 +23,18 @@ type Post struct {
 	Categories   []string  `json:"categories"`
 	CreatedAt    time.Time `json:"created_at"`
 	CommentCount int       `json:"comment_count"`
+	LikeCount    int       `json:"like_count"`
+	DislikeCount int       `json:"dislike_count"`
+	UserReaction string    `json:"user_reaction,omitempty"` // "", "like", "dislike"
+}
+
+// ReactionUpdate is broadcast after a like/dislike/remove.
+type ReactionUpdate struct {
+	PostID       int    `json:"post_id"`
+	UserID       int    `json:"user_id"`
+	Reaction     string `json:"reaction"`
+	LikeCount    int    `json:"like_count"`
+	DislikeCount int    `json:"dislike_count"`
 }
 
 type Comment struct {
@@ -49,4 +61,19 @@ type UserListItem struct {
 	Nickname    string     `json:"nickname"`
 	Online      bool       `json:"online"`
 	LastMessage *time.Time `json:"last_message"`
+}
+
+type Category struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// ChatOutbound is a persisted private message ready for WebSocket delivery.
+type ChatOutbound struct {
+	ID        int
+	From      int
+	FromNick  string
+	To        int
+	Content   string
+	CreatedAt string
 }

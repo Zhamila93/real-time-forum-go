@@ -1,9 +1,9 @@
-package handlers
+package http
 
 import (
 	"net/http"
 
-	ws "forum/backend/websocket"
+	ws "forum/internal/transport/websocket"
 
 	gws "github.com/gorilla/websocket"
 )
@@ -12,20 +12,19 @@ var upgrader = gws.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// одноpаgevый: разрешаем любые
 		return true
 	},
 }
 
 func (h *Handler) WSHandler(w http.ResponseWriter, r *http.Request) {
-	userID := h.getUserIDFromRequest(r)
+	userID := h.userIDFromRequest(r)
 	if userID == 0 {
 		http.Error(w, "Не авторизован", http.StatusUnauthorized)
 		return
 	}
 
-	var nickname string
-	if err := h.DB.QueryRow(`SELECT nickname FROM users WHERE id = ?`, userID).Scan(&nickname); err != nil {
+	_, nickname, err := h.Auth.Me(userID)
+	if err != nil {
 		http.Error(w, "Ошибка", http.StatusInternalServerError)
 		return
 	}

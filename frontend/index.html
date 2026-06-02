@@ -2,28 +2,32 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Real-Time Forum</title>
+  <title>The Forum — Real-Time Editorial</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
   <div id="app"></div>
 
-  <!-- Шаблоны страниц -->
+  <!-- Auth -->
   <template id="tpl-login">
     <div class="auth-page">
       <div class="auth-card">
-        <h1>Войти</h1>
+        <p class="auth-kicker">Account</p>
+        <h1 class="auth-title">Sign In</h1>
         <form id="login-form" class="auth-form">
-          <label>Никнейм или e-mail
-            <input type="text" name="identifier" required />
+          <label class="field-label">Nickname or e-mail
+            <input type="text" name="identifier" required autocomplete="username" />
           </label>
-          <label>Пароль
-            <input type="password" name="password" required />
+          <label class="field-label">Password
+            <input type="password" name="password" required autocomplete="current-password" />
           </label>
-          <button type="submit">Войти</button>
+          <button type="submit" class="btn btn--primary">Sign In</button>
           <p class="err" id="login-err"></p>
-          <p class="switch">Нет аккаунта? <a href="#" data-go="register">Зарегистрироваться</a></p>
+          <p class="switch">No account? <a href="#" data-go="register">Register</a></p>
         </form>
       </div>
     </div>
@@ -32,102 +36,129 @@
   <template id="tpl-register">
     <div class="auth-page">
       <div class="auth-card">
-        <h1>Регистрация</h1>
+        <p class="auth-kicker">Account</p>
+        <h1 class="auth-title">Register</h1>
         <form id="register-form" class="auth-form">
-          <label>Никнейм<input type="text" name="nickname" required /></label>
-          <label>Возраст<input type="number" name="age" min="1" max="150" required /></label>
-          <label>Пол
+          <label class="field-label">Nickname<input type="text" name="nickname" required /></label>
+          <label class="field-label">Age<input type="number" name="age" min="1" max="150" required /></label>
+          <label class="field-label">Gender
             <select name="gender" required>
               <option value="">—</option>
-              <option value="male">Мужской</option>
-              <option value="female">Женский</option>
-              <option value="other">Другой</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
             </select>
           </label>
-          <label>Имя<input type="text" name="first_name" required /></label>
-          <label>Фамилия<input type="text" name="last_name" required /></label>
-          <label>E-mail<input type="email" name="email" required /></label>
-          <label>Пароль (мин. 6 симв.)<input type="password" name="password" minlength="6" required /></label>
-          <button type="submit">Зарегистрироваться</button>
+          <label class="field-label">First name<input type="text" name="first_name" required /></label>
+          <label class="field-label">Last name<input type="text" name="last_name" required /></label>
+          <label class="field-label">E-mail<input type="email" name="email" required autocomplete="email" /></label>
+          <label class="field-label">Password (min. 6)<input type="password" name="password" minlength="6" required autocomplete="new-password" /></label>
+          <button type="submit" class="btn btn--primary">Create Account</button>
           <p class="err" id="register-err"></p>
-          <p class="switch">Уже есть аккаунт? <a href="#" data-go="login">Войти</a></p>
+          <p class="switch">Already registered? <a href="#" data-go="login">Sign in</a></p>
         </form>
       </div>
     </div>
   </template>
 
+  <!-- App shell -->
   <template id="tpl-main">
     <div class="layout">
-      <header class="topbar">
-        <div class="brand">Forum</div>
-        <nav class="nav">
-          <a href="#" data-go="feed">Лента</a>
-          <a href="#" data-go="newpost">Новый пост</a>
-        </nav>
-        <div class="userbox">
-          <span id="me-nick"></span>
-          <button id="logout-btn">Выйти</button>
+      <header class="masthead" role="banner">
+        <div class="masthead__inner">
+          <div class="masthead__brand">
+            <a href="#" data-go="feed" class="brand-link">The Forum</a>
+            <p class="masthead__tagline">Real-Time Editorial</p>
+          </div>
+          <nav class="masthead__nav" aria-label="Primary">
+            <a href="#" data-go="feed" class="nav-link">Home</a>
+            <a href="#" data-go="newpost" class="nav-link">Write</a>
+          </nav>
+          <div class="masthead__user userbox">
+            <span id="me-nick" class="userbox__nick"></span>
+            <button type="button" id="logout-btn" class="btn btn--ghost">Sign Out</button>
+          </div>
         </div>
+        <hr class="rule rule--masthead" />
       </header>
 
-      <main class="main">
-        <section class="content" id="content"></section>
-        <aside class="sidebar">
-          <h3>Пользователи</h3>
-          <div id="users-list"></div>
+      <div class="page-grid">
+        <main class="main" id="main-content">
+          <section class="content editorial-surface" id="content" aria-live="polite"></section>
+        </main>
+        <aside class="sidebar editorial-rail" aria-label="Members">
+          <h3 class="rail-title">Members</h3>
+          <hr class="rule" />
+          <div id="users-list" class="users-list"></div>
         </aside>
-      </main>
+      </div>
 
-      <!-- окно чата -->
-      <div id="chat-window" class="chat-window hidden">
+      <div id="chat-window" class="chat-window hidden" role="dialog" aria-label="Private message">
         <div class="chat-header">
           <span id="chat-with"></span>
-          <button id="chat-close">×</button>
+          <button type="button" id="chat-close" class="chat-close" aria-label="Close">×</button>
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <form id="chat-form" class="chat-form">
-          <input type="text" id="chat-input" placeholder="Сообщение..." autocomplete="off" />
-          <button type="submit">→</button>
+          <input type="text" id="chat-input" placeholder="Write a message…" autocomplete="off" />
+          <button type="submit" class="btn btn--primary">Send</button>
         </form>
       </div>
     </div>
   </template>
 
+  <!-- Feed -->
   <template id="tpl-feed">
-    <h2>Лента</h2>
+    <header class="section-header">
+      <p class="section-kicker">Today</p>
+      <h2 class="section-title">The Feed</h2>
+      <hr class="rule" />
+    </header>
     <div class="filters">
-      <label>Категория:
-        <select id="filter-category">
-          <option value="">Все</option>
+      <label class="field-label field-label--inline">Section
+        <select id="filter-category" class="select-editorial">
+          <option value="">All Sections</option>
         </select>
       </label>
     </div>
-    <div id="posts-list" class="posts-list"></div>
+    <div id="posts-list" class="posts-list editorial-grid" role="feed"></div>
   </template>
 
+  <!-- New post -->
   <template id="tpl-newpost">
-    <h2>Создать пост</h2>
-    <form id="newpost-form" class="newpost-form">
-      <label>Заголовок<input type="text" name="title" required /></label>
-      <label>Текст<textarea name="content" rows="6" required></textarea></label>
-      <fieldset>
-        <legend>Категории (минимум одна)</legend>
-        <div id="categories-checkboxes"></div>
+    <header class="section-header">
+      <p class="section-kicker">Contribute</p>
+      <h2 class="section-title">Submit a Story</h2>
+      <hr class="rule" />
+    </header>
+    <form id="newpost-form" class="newpost-form compose-form">
+      <label class="field-label">Headline<input type="text" name="title" required class="input-headline" /></label>
+      <label class="field-label">Body<textarea name="content" rows="10" required class="input-body"></textarea></label>
+      <fieldset class="fieldset-editorial">
+        <legend>Sections (choose at least one)</legend>
+        <div id="categories-checkboxes" class="checkbox-grid"></div>
       </fieldset>
-      <button type="submit">Опубликовать</button>
+      <button type="submit" class="btn btn--primary">Publish</button>
       <p class="err" id="newpost-err"></p>
     </form>
   </template>
 
+  <!-- Single post -->
   <template id="tpl-post-view">
-    <button class="back-btn" data-go="feed">← Назад к ленте</button>
-    <article id="single-post"></article>
-    <section class="comments">
-      <h3>Комментарии</h3>
-      <div id="comments-list"></div>
-      <form id="comment-form">
-        <textarea name="content" rows="2" placeholder="Ваш комментарий..." required></textarea>
-        <button type="submit">Отправить</button>
+    <nav class="article-nav">
+      <button type="button" class="back-btn btn btn--ghost" data-go="feed">← Back to Feed</button>
+    </nav>
+    <article id="single-post" class="article-body"></article>
+    <hr class="rule rule--section" />
+    <section class="comments comments-thread">
+      <header class="comments-header">
+        <h3 class="comments-title">Discussion</h3>
+      </header>
+      <div id="comments-list" class="comments-list"></div>
+      <form id="comment-form" class="comment-compose">
+        <label class="sr-only" for="comment-input">Your comment</label>
+        <textarea id="comment-input" name="content" rows="3" placeholder="Join the discussion…" required></textarea>
+        <button type="submit" class="btn btn--primary">Post Comment</button>
       </form>
     </section>
   </template>

@@ -74,4 +74,5 @@ const State = {
   chatHasMore: true,
   chatLoading: false,
   view: 'login',      // текущая страница
+  viewingPostId: null, // id поста на экране просмотра
 };

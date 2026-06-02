@@ -29,6 +29,8 @@ const API = {
   posts:        (cat)   => apiRequest('/api/posts' + (cat ? `?category=${encodeURIComponent(cat)}` : '')),
   createPost:   (body)  => apiRequest('/api/posts', { method: 'POST', body }),
   postByID:     (id)    => apiRequest('/api/posts/' + id),
+  setReaction:  (postId, reaction) =>
+    apiRequest('/api/posts/' + postId + '/reaction', { method: 'POST', body: { reaction } }),
   createComment:(body)  => apiRequest('/api/comments', { method: 'POST', body }),
   categories:   ()      => apiRequest('/api/categories'),
 

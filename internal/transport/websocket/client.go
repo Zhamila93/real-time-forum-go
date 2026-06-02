@@ -14,7 +14,14 @@ const (
 	maxMessageSize = 4096
 )
 
-// ReadPump читает сообщения от клиента
+type Client struct {
+	Hub      *Hub
+	Conn     *gws.Conn
+	Send     chan []byte
+	UserID   int
+	Nickname string
+}
+
 func (c *Client) ReadPump() {
 	defer func() {
 		c.Hub.Unregister(c)
@@ -36,12 +43,10 @@ func (c *Client) ReadPump() {
 			}
 			break
 		}
-		log.Printf("ws recv user %d: %s", c.UserID, string(message))
 		c.Hub.HandleIncoming(c, message)
 	}
 }
 
-// WritePump пишет сообщения клиенту
 func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -54,7 +59,7 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.Send:
 			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				c.Conn.WriteMessage(gws.CloseMessage, []byte{})
+				_ = c.Conn.WriteMessage(gws.CloseMessage, []byte{})
 				return
 			}
 			if err := c.Conn.WriteMessage(gws.TextMessage, message); err != nil {

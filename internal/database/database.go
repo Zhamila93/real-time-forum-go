@@ -6,7 +6,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func InitDB(path string) (*sql.DB, error) {
+func Open(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", path+"?_foreign_keys=on")
 	if err != nil {
 		return nil, err
@@ -14,16 +14,22 @@ func InitDB(path string) (*sql.DB, error) {
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-	if err := createTables(db); err != nil {
+	if err := migrate(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if err := migrateReactions(db); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	if err := seedCategories(db); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	return db, nil
 }
 
-func createTables(db *sql.DB) error {
+func migrate(db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,11 +100,28 @@ func createTables(db *sql.DB) error {
 	return err
 }
 
+func migrateReactions(db *sql.DB) error {
+	const schema = `
+	CREATE TABLE IF NOT EXISTS reactions (
+		user_id INTEGER NOT NULL,
+		post_id INTEGER NOT NULL,
+		value INTEGER NOT NULL CHECK (value IN (-1, 1)),
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (user_id, post_id),
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+	);
+	CREATE INDEX IF NOT EXISTS idx_reactions_post ON reactions(post_id);
+	`
+	_, err := db.Exec(schema)
+	return err
+}
+
 func seedCategories(db *sql.DB) error {
 	cats := []string{"General", "Tech", "Sports", "Music", "Gaming", "News", "Other"}
 	for _, c := range cats {
-		_, err := db.Exec(`INSERT OR IGNORE INTO categories (name) VALUES (?)`, c)
-		if err != nil {
+		if _, err := db.Exec(`INSERT OR IGNORE INTO categories (name) VALUES (?)`, c); err != nil {
 			return err
 		}
 	}

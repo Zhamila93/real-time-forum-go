@@ -81,6 +81,15 @@ const App = {
     WS.on('typing', (data) => {
       Chat.onTyping(data);
     });
+    WS.on('reaction_updated', (data) => {
+      Posts.applyReactionUpdate(data);
+    });
+    WS.on('post_created', (data) => {
+      Posts.onPostCreated(data);
+    });
+    WS.on('comment_created', (data) => {
+      Posts.onCommentCreated(data);
+    });
 
     WS.connect();
 
