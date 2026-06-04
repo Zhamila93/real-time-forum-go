@@ -446,6 +446,7 @@ textarea {
   background: transparent;
   transition: background 0.15s ease;
   position: relative;
+  word-wrap: break-word;
 }
 
 .post-card::before {
@@ -636,6 +637,7 @@ textarea {
 #single-post {
   max-width: 42rem;
   padding-bottom: var(--space-lg);
+  word-wrap: break-word;
 }
 
 .post-view__title,
@@ -746,6 +748,7 @@ textarea {
   border-bottom: 1px solid var(--rule);
   border-left: 2px solid var(--ink);
   background: transparent;
+  word-wrap: break-word;
 }
 
 .comment-meta {
