@@ -2,173 +2,226 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>The Forum — Real-Time Editorial</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Forum | New York Digital Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/static/css/styles.css?v=2" />
 </head>
 <body>
-  <div id="app"></div>
 
-  <!-- Auth -->
-  <template id="tpl-login">
-    <div class="auth-page">
-      <div class="auth-card">
-        <p class="auth-kicker">Account</p>
-        <h1 class="auth-title">Sign In</h1>
-        <form id="login-form" class="auth-form">
-          <label class="field-label">Nickname or e-mail
-            <input type="text" name="identifier" required autocomplete="username" />
-          </label>
-          <label class="field-label">Password
-            <input type="password" name="password" required autocomplete="current-password" />
-          </label>
-          <button type="submit" class="btn btn--primary">Sign In</button>
-          <p class="err" id="login-err"></p>
-          <p class="switch">No account? <a href="#" data-go="register">Register</a></p>
-        </form>
-      </div>
-    </div>
-  </template>
+<div id="app"></div>
 
-  <template id="tpl-register">
-    <div class="auth-page">
-      <div class="auth-card">
-        <p class="auth-kicker">Account</p>
-        <h1 class="auth-title">Register</h1>
-        <form id="register-form" class="auth-form">
-          <label class="field-label">Nickname<input type="text" name="nickname" required /></label>
-          <label class="field-label">Age<input type="number" name="age" min="1" max="150" required /></label>
-          <label class="field-label">Gender
-            <select name="gender" required>
-              <option value="">—</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label class="field-label">First name<input type="text" name="first_name" required /></label>
-          <label class="field-label">Last name<input type="text" name="last_name" required /></label>
-          <label class="field-label">E-mail<input type="email" name="email" required autocomplete="email" /></label>
-          <label class="field-label">Password (min. 6)<input type="password" name="password" minlength="6" required autocomplete="new-password" /></label>
-          <button type="submit" class="btn btn--primary">Create Account</button>
-          <p class="err" id="register-err"></p>
-          <p class="switch">Already registered? <a href="#" data-go="login">Sign in</a></p>
-        </form>
-      </div>
-    </div>
-  </template>
+<!-- ================= LOGIN ================= -->
+<template id="tpl-login">
+  <section class="auth">
+    <div class="auth-box">
+      <div class="paper-title">THE FORUM</div>
+      <p class="date">NEW YORK EDITION • REAL TIME</p>
+      <h1>Sign In</h1>
 
-  <!-- App shell -->
-  <template id="tpl-main">
-    <div class="layout">
-      <header class="masthead" role="banner">
-        <div class="masthead__inner">
-          <div class="masthead__brand">
-            <a href="#" data-go="feed" class="brand-link">The Forum</a>
-            <p class="masthead__tagline">Real-Time Editorial</p>
-          </div>
-          <nav class="masthead__nav" aria-label="Primary">
-            <a href="#" data-go="feed" class="nav-link">Home</a>
-            <a href="#" data-go="newpost" class="nav-link">Write</a>
-          </nav>
-          <div class="masthead__user userbox">
-            <span id="me-nick" class="userbox__nick"></span>
-            <button type="button" id="logout-btn" class="btn btn--ghost">Sign Out</button>
-          </div>
-        </div>
-        <hr class="rule rule--masthead" />
-      </header>
+      <form id="login-form">
+        <label>
+          Nickname or Email
+          <input name="identifier" type="text" required autocomplete="username" />
+        </label>
 
-      <div class="page-grid">
-        <main class="main" id="main-content">
-          <section class="content editorial-surface" id="content" aria-live="polite"></section>
-        </main>
-        <aside class="sidebar editorial-rail" aria-label="Members">
-          <h3 class="rail-title">Members</h3>
-          <hr class="rule" />
-          <div id="users-list" class="users-list"></div>
-        </aside>
-      </div>
+        <label>
+          Password
+          <input name="password" type="password" required autocomplete="current-password" />
+        </label>
 
-      <div id="chat-window" class="chat-window hidden" role="dialog" aria-label="Private message">
-        <div class="chat-header">
-          <span id="chat-with"></span>
-          <button type="button" id="chat-close" class="chat-close" aria-label="Close">×</button>
-        </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <form id="chat-form" class="chat-form">
-          <input type="text" id="chat-input" placeholder="Write a message…" autocomplete="off" />
-          <button type="submit" class="btn btn--primary">Send</button>
-        </form>
-      </div>
-    </div>
-  </template>
+        <button type="submit" class="black-btn">LOGIN</button>
+        <p id="login-err" class="error"></p>
 
-  <!-- Feed -->
-  <template id="tpl-feed">
-    <header class="section-header">
-      <p class="section-kicker">Today</p>
-      <h2 class="section-title">The Feed</h2>
-      <hr class="rule" />
-    </header>
-    <div class="filters">
-      <label class="field-label field-label--inline">Section
-        <select id="filter-category" class="select-editorial">
-          <option value="">All Sections</option>
-        </select>
-      </label>
-    </div>
-    <div id="posts-list" class="posts-list editorial-grid" role="feed"></div>
-  </template>
-
-  <!-- New post -->
-  <template id="tpl-newpost">
-    <header class="section-header">
-      <p class="section-kicker">Contribute</p>
-      <h2 class="section-title">Submit a Story</h2>
-      <hr class="rule" />
-    </header>
-    <form id="newpost-form" class="newpost-form compose-form">
-      <label class="field-label">Headline<input type="text" name="title" required class="input-headline" /></label>
-      <label class="field-label">Body<textarea name="content" rows="10" required class="input-body"></textarea></label>
-      <fieldset class="fieldset-editorial">
-        <legend>Sections (choose at least one)</legend>
-        <div id="categories-checkboxes" class="checkbox-grid"></div>
-      </fieldset>
-      <button type="submit" class="btn btn--primary">Publish</button>
-      <p class="err" id="newpost-err"></p>
-    </form>
-  </template>
-
-  <!-- Single post -->
-  <template id="tpl-post-view">
-    <nav class="article-nav">
-      <button type="button" class="back-btn btn btn--ghost" data-go="feed">← Back to Feed</button>
-    </nav>
-    <article id="single-post" class="article-body"></article>
-    <hr class="rule rule--section" />
-    <section class="comments comments-thread">
-      <header class="comments-header">
-        <h3 class="comments-title">Discussion</h3>
-      </header>
-      <div id="comments-list" class="comments-list"></div>
-      <form id="comment-form" class="comment-compose">
-        <label class="sr-only" for="comment-input">Your comment</label>
-        <textarea id="comment-input" name="content" rows="3" placeholder="Join the discussion…" required></textarea>
-        <button type="submit" class="btn btn--primary">Post Comment</button>
+        <p class="switch">
+          New reader? <a href="#" data-go="register">Create account</a>
+        </p>
       </form>
-    </section>
-  </template>
+    </div>
+  </section>
+</template>
 
-  <script src="/static/js/utils.js"></script>
-  <script src="/static/js/api.js"></script>
-  <script src="/static/js/ws.js"></script>
-  <script src="/static/js/auth.js"></script>
-  <script src="/static/js/posts.js"></script>
-  <script src="/static/js/chat.js"></script>
-  <script src="/static/js/app.js"></script>
+<!-- ================= REGISTER ================= -->
+<template id="tpl-register">
+  <section class="auth">
+    <div class="auth-box">
+      <div class="paper-title">THE FORUM</div>
+      <p class="date">NEW YORK EDITION • REAL TIME</p>
+      <h1>Create Account</h1>
+
+      <form id="register-form">
+        <label>
+          Nickname
+          <input name="nickname" required />
+        </label>
+
+        <label>
+          Age
+          <input type="number" name="age" min="1" max="150" required />
+        </label>
+
+        <label>
+          Gender
+          <select name="gender" required>
+            <option value="">Choose</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <label>
+          First name
+          <input name="first_name" required />
+        </label>
+
+        <label>
+          Last name
+          <input name="last_name" required />
+        </label>
+
+        <label>
+          Email
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+
+        <label>
+          Password (min. 6)
+          <input type="password" name="password" minlength="6" required autocomplete="new-password" />
+        </label>
+
+        <button type="submit" class="black-btn">REGISTER</button>
+        <p id="register-err" class="error"></p>
+
+        <p class="switch">
+          Already member? <a href="#" data-go="login">Login</a>
+        </p>
+      </form>
+    </div>
+  </section>
+</template>
+
+<!-- ================= MAIN APP ================= -->
+<template id="tpl-main">
+  <div class="site">
+
+    <header class="header">
+      <div class="city-photo">
+        <div class="overlay">
+          <h1>THE FORUM</h1>
+          <p>NEW YORK DIGITAL EDITION</p>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <a href="#" data-go="feed">HOME</a>
+        <a href="#" data-go="newpost">WRITE</a>
+        <div class="account">
+          <span id="me-nick"></span>
+          <button type="button" id="logout-btn">LOGOUT</button>
+        </div>
+      </nav>
+    </header>
+
+    <div class="layout">
+      <main id="content"></main>
+
+      <aside class="members">
+        <h3>MEMBERS</h3>
+        <hr />
+        <div id="users-list"></div>
+      </aside>
+    </div>
+
+    <div id="chat-window" class="chat hidden">
+      <div class="chat-title">
+        <span id="chat-with"></span>
+        <button type="button" id="chat-close">×</button>
+      </div>
+      <div id="chat-messages"></div>
+      <form id="chat-form">
+        <input id="chat-input" placeholder="Message..." autocomplete="off" />
+        <button type="submit">SEND</button>
+      </form>
+    </div>
+
+  </div>
+</template>
+
+<!-- ================= FEED ================= -->
+<template id="tpl-feed">
+  <section>
+    <header class="section">
+      <p>TODAY</p>
+      <h2>Latest Stories</h2>
+    </header>
+
+    <select id="filter-category">
+      <option value="">All categories</option>
+    </select>
+
+    <div id="posts-list"></div>
+  </section>
+</template>
+
+<!-- ================= NEW POST ================= -->
+<template id="tpl-newpost">
+  <section>
+    <header class="section">
+      <p>EDITORIAL</p>
+      <h2>Create Story</h2>
+    </header>
+
+    <form id="newpost-form">
+      <label>
+        Title
+        <input name="title" required />
+      </label>
+
+      <label>
+        Story
+        <textarea name="content" rows="10" required></textarea>
+      </label>
+
+      <div id="categories-checkboxes"></div>
+
+      <button type="submit" class="black-btn">PUBLISH</button>
+      <p id="newpost-err" class="error"></p>
+    </form>
+  </section>
+</template>
+
+<!-- ================= POST ================= -->
+<template id="tpl-post-view">
+  <section>
+    <button type="button" data-go="feed">← Back</button>
+
+    <article id="single-post"></article>
+
+    <hr />
+
+    <h3>COMMENTS</h3>
+
+    <div id="comments-list"></div>
+
+    <form id="comment-form">
+      <textarea id="comment-input" placeholder="Write comment..." required></textarea>
+      <button type="submit" class="black-btn">COMMENT</button>
+    </form>
+  </section>
+</template>
+
+<script src="/static/js/utils.js?v=2"></script>
+<script src="/static/js/api.js?v=2"></script>
+<script src="/static/js/ws.js?v=2"></script>
+<script src="/static/js/auth.js?v=2"></script>
+<script src="/static/js/posts.js?v=2"></script>
+<script src="/static/js/chat.js?v=2"></script>
+<script src="/static/js/app.js?v=2"></script>
+
 </body>
 </html>

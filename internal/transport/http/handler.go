@@ -1,7 +1,9 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"forum/internal/config"
@@ -32,11 +34,18 @@ func (h *Handler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(h.Config.StaticDir, "index.html"))
+
+	// index.html ищем внутри static, если нет — на уровень выше (./frontend/index.html)
+	index := filepath.Join(h.Config.StaticDir, "index.html")
+	if _, err := os.Stat(index); os.IsNotExist(err) {
+		index = filepath.Join(filepath.Dir(h.Config.StaticDir), "index.html")
+	}
+	http.ServeFile(w, r, index)
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	fs := http.FileServer(http.Dir(h.Config.StaticDir))
+	fmt.Printf("static path = %s\n", h.Config.StaticDir)
 	mux.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	mux.HandleFunc("/", h.ServeIndex)

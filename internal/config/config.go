@@ -12,6 +12,6 @@ func Default() Config {
 	return Config{
 		Addr:      ":8080",
 		DBPath:    "./forum.db",
-		StaticDir: "./frontend",
+		StaticDir: "./frontend/static",
 	}
 }
