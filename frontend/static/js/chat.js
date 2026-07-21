@@ -1,19 +1,27 @@
 /* ==========================================================================
-   chat.js — сведён с internal/transport/websocket/hub.go:
-   ← new_message {id, from, from_nick, to, content, created_at}
-   ← online_list {online_ids:[...]}
-   ← user_online / user_offline {from}
-   ← typing {from, from_nick, to}
-   → message {to, content} · → typing {to}
-   История: GET /api/messages?with=ID&offset=N&limit=10
+   chat.js — участники + чат, финальная сведённая версия
    ========================================================================== */
 
    const Chat = {
     PAGE: 10,
   
     async loadUsers() {
-      try { State.users = (await API.users()) || []; }
-      catch { State.users = []; }
+      let raw = [];
+      try { raw = (await API.users()) || []; }
+      catch { raw = []; }
+  
+      State.users = raw.map((u) => ({
+        id: u.id ?? u.ID ?? 0,
+        nickname: u.nickname ?? u.Nickname ?? "",
+        online: !!(u.online ?? u.is_online ?? u.Online ?? u.IsOnline),
+        last_message_at:
+          u.last_message_at ?? u.last_message ?? u.LastMessage ?? null,
+      }));
+  
+      if (State.onlineIDs) {
+        const set = new Set(State.onlineIDs);
+        State.users.forEach((u) => { u.online = u.online || set.has(u.id); });
+      }
       Chat.renderUsers();
     },
   
@@ -90,7 +98,6 @@
       if (batch.length < Chat.PAGE) st.done = true;
       st.offset += batch.length;
   
-      // История могла прийти новые→старые; рисуем старые→новые
       if (batch.length > 1) {
         const t0 = Date.parse(Chat.norm(batch[0]).created_at || 0);
         const t1 = Date.parse(Chat.norm(batch[batch.length - 1]).created_at || 0);
@@ -110,7 +117,6 @@
       st.loading = false;
     },
   
-    // Понимает WS-формат (from/from_nick) и любой формат HTTP-истории
     norm(m) {
       return {
         from: m.from ?? m.sender_id ?? m.SenderID ?? m.From ?? 0,
@@ -146,6 +152,9 @@
         box.scrollTop = box.scrollHeight;
       }
       State.chat.offset += 1;
+  
+      // Раз от него пришло сообщение — он точно онлайн (подстраховка)
+      Chat.setOnline(m.from, true);
     },
   
     send() {
@@ -156,7 +165,6 @@
       const ok = WS.send("message", { to: st.peer.id, content: text });
       if (!ok) return;
       input.value = "";
-      // своё сообщение придёт эхом new_message от сервера — его и нарисуем
     },
   
     showTyping(nick) {
@@ -174,12 +182,19 @@
     },
   
     setOnline(userID, online) {
+      if (!userID) return;
+      State.onlineIDs = State.onlineIDs || [];
+      if (online && !State.onlineIDs.includes(userID)) State.onlineIDs.push(userID);
+      if (!online) State.onlineIDs = State.onlineIDs.filter((id) => id !== userID);
+  
       const u = State.users.find((x) => x.id === userID);
       if (u) {
-        u.online = online;
-        Chat.renderUsers();
+        if (u.online !== online) {
+          u.online = online;
+          Chat.renderUsers();
+        }
       } else if (online) {
-        Chat.loadUsers(); // зарегистрировался кто-то новый
+        Chat.loadUsers();
       }
     },
   
@@ -196,7 +211,6 @@
       }, 300);
       $("#chat-input").addEventListener("input", sendTyping);
   
-      // Подгрузка истории по 10 при скролле вверх — с throttle (требование аудита)
       $("#chat-messages").addEventListener(
         "scroll",
         throttle(function () {
@@ -206,9 +220,8 @@
     },
   };
   
-  /* ---------- События ровно в именах твоего Hub ---------- */
+  /* ---------- События Hub'а (hub.go) ---------- */
   
-  // Личное сообщение (сервер шлёт и получателю, и эхо отправителю)
   WS.on("new_message", (raw) => {
     const m = Chat.norm(raw);
     const peer = State.chat.peer;
@@ -220,8 +233,11 @@
   
     if (chatOpen) {
       Chat.appendMessage(raw);
-    } else if (m.from !== State.user.id) {
-      State.unread[m.from] = (State.unread[m.from] || 0) + 1;
+    } else {
+      if (m.from !== State.user.id) {
+        State.unread[m.from] = (State.unread[m.from] || 0) + 1;
+        Chat.setOnline(m.from, true);
+      }
     }
   
     const otherID = m.from === State.user.id ? m.to : m.from;
@@ -230,19 +246,18 @@
     Chat.renderUsers();
   });
   
-  // Снапшот онлайна при подключении: {type:"online_list", online_ids:[...]}
   WS.on("online_list", (msg) => {
-    const set = new Set(msg.online_ids || []);
+    State.onlineIDs = msg.online_ids || [];
+    const set = new Set(State.onlineIDs);
     State.users.forEach((u) => { u.online = set.has(u.id); });
     Chat.renderUsers();
   });
   
-  // Кто-то вошёл/вышел: {type:"user_online"/"user_offline", from: userID}
   WS.on("user_online", (msg) => Chat.setOnline(msg.from, true));
   WS.on("user_offline", (msg) => Chat.setOnline(msg.from, false));
   
-  // Печатает: {type:"typing", from, from_nick}
   WS.on("typing", (msg) => {
+    Chat.setOnline(msg.from, true); // печатает — точно онлайн
     if (State.chat.peer && msg.from === State.chat.peer.id) {
       Chat.showTyping(msg.from_nick);
     }
