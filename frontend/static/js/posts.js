@@ -291,4 +291,28 @@
         list.appendChild(Posts.commentEl(c));
       }
     }
+  });/* ---- События форума в формате бэкенда ---- */
+  WS.on("post_created", () => {
+    if ($("#posts-list")) Posts.loadFeed($("#filter-category")?.value || "");
+  });
+  
+  WS.on("comment_created", (msg) => {
+    const c = msg.comment || {};
+    if (State.currentPostID && Number(msg.post_id) === Number(State.currentPostID)) {
+      const list = $("#comments-list");
+      if (list) {
+        const empty = list.querySelector(".comments-empty");
+        if (empty) empty.remove();
+        list.appendChild(Posts.commentEl(c));
+      }
+    }
+  });
+  
+  WS.on("reaction_updated", (msg) => {
+    if (State.currentPostID && Number(msg.post_id) === Number(State.currentPostID)) {
+      const likeEl = document.querySelector("#single-post .like-count");
+      const disEl = document.querySelector("#single-post .dislike-count");
+      if (likeEl) likeEl.textContent = msg.like_count ?? likeEl.textContent;
+      if (disEl) disEl.textContent = msg.dislike_count ?? disEl.textContent;
+    }
   });
